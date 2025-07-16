@@ -1,0 +1,57 @@
+body {
+    background-color: #87CEEB;
+    color: #fff;
+    font-family: 'Nunito', sans-serif;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    margin: 0;
+}
+
+h1 {
+    color: #FFD700;
+    text-shadow: 3px 3px 0 #4682B4;
+    font-size: 4rem;
+    margin-bottom: 1rem;
+}
+
+canvas {
+    background-color: #a7d397;
+    border: 10px solid #5e4534;
+    border-radius: 15px;
+    box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+}
+
+#score {
+    font-size: 2rem;
+    color: #fff;
+    background-color: #FF6347;
+    padding: 10px 20px;
+    border-radius: 10px;
+    margin-top: 1rem;
+    box-shadow: 0 5px 10px rgba(0,0,0,0.15);
+}
+
+button {
+    margin-top: 1rem;
+    padding: 15px 30px;
+    font-size: 1.5rem;
+    cursor: pointer;
+    border: none;
+    border-radius: 10px;
+    background-color: #FFD700;
+    color: #4682B4;
+    box-shadow: 0 5px 10px rgba(0,0,0,0.15);
+    transition: transform 0.1s;
+}
+
+button:hover {
+    transform: scale(1.05);
+}
+
+button:active {
+    transform: scale(0.95);
+}
