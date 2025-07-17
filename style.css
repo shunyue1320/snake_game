@@ -9,13 +9,16 @@ body {
     justify-content: center;
     height: 100vh;
     margin: 0;
+    padding: 20px;
+    box-sizing: border-box;
 }
 
 h1 {
     color: #FFD700;
     text-shadow: 3px 3px 0 #4682B4;
-    font-size: 4rem;
-    margin-bottom: 1rem;
+    font-size: 3rem;
+    margin-bottom: 1.5rem;
+    margin-top: 0;
 }
 
 canvas {
@@ -23,20 +26,23 @@ canvas {
     border: 10px solid #5e4534;
     border-radius: 15px;
     box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    display: block;
 }
 
 #score {
     font-size: 2rem;
     color: #fff;
     background-color: #FF6347;
-    padding: 10px 20px;
+    padding: 15px 30px;
     border-radius: 10px;
-    margin-top: 1rem;
+    margin-bottom: 2rem;
     box-shadow: 0 5px 10px rgba(0,0,0,0.15);
+    white-space: nowrap;
 }
 
 button {
-    margin-top: 1rem;
+    width: 100%;
+    margin-bottom: 1rem;
     padding: 15px 30px;
     font-size: 1.5rem;
     cursor: pointer;
@@ -46,6 +52,7 @@ button {
     color: #4682B4;
     box-shadow: 0 5px 10px rgba(0,0,0,0.15);
     transition: transform 0.1s;
+    white-space: nowrap;
 }
 
 button:hover {
@@ -54,4 +61,89 @@ button:hover {
 
 button:active {
     transform: scale(0.95);
+}
+
+#gameContainer {
+    display: flex;
+    align-items: flex-start;
+    gap: 2rem;
+    max-width: 1000px;
+    width: 100%;
+}
+
+#gameArea {
+    flex: 1;
+    display: flex;
+    justify-content: center;
+}
+
+#controlPanel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 200px;
+    padding-top: 2rem;
+}
+
+@media (max-width: 900px) {
+    #gameContainer {
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+    }
+    
+    #controlPanel {
+        flex-direction: row;
+        gap: 1rem;
+        padding-top: 1rem;
+    }
+    
+    button {
+        width: auto;
+        margin-bottom: 0;
+    }
+    
+    #score {
+        margin-bottom: 0;
+        margin-right: 1rem;
+    }
+    
+    h1 {
+        font-size: 2.5rem;
+    }
+}
+
+@media (max-width: 600px) {
+    #gameContainer {
+        gap: 0.5rem;
+    }
+    
+    #controlPanel {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    #score {
+        margin-right: 0;
+        margin-bottom: 0.5rem;
+        font-size: 1.5rem;
+        padding: 10px 20px;
+    }
+    
+    button {
+        font-size: 1.2rem;
+        padding: 12px 24px;
+    }
+    
+    h1 {
+        font-size: 2rem;
+        margin-bottom: 1rem;
+    }
+    
+    canvas {
+        width: 100%;
+        height: auto;
+        max-width: 400px;
+        max-height: 400px;
+    }
 }
