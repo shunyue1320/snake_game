@@ -27,7 +27,7 @@ function drawCheckerboard() {
 function drawSnake() {
     // Draw body
     for (let i = 1; i < snake.length; i++) {
-        ctx.fillStyle = '#2ecc71'; // Green body
+        ctx.fillStyle = '#000000'; // Black body
         ctx.beginPath();
         ctx.arc(snake[i].x * gridSize + gridSize / 2, snake[i].y * gridSize + gridSize / 2, gridSize / 2, 0, 2 * Math.PI);
         ctx.fill();
@@ -35,7 +35,7 @@ function drawSnake() {
 
     // Draw head
     const head = snake[0];
-    ctx.fillStyle = '#27ae60'; // Darker green head
+    ctx.fillStyle = '#000000'; // Black head
     ctx.beginPath();
     ctx.arc(head.x * gridSize + gridSize / 2, head.y * gridSize + gridSize / 2, gridSize / 2 + 2, 0, 2 * Math.PI); // Slightly larger head
     ctx.fill();
