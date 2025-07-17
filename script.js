@@ -13,6 +13,157 @@ let gameOver = false;
 let gamePaused = true;
 let gameInterval;
 
+// NPC Snake variables
+let npcSnakes = [];
+const MAX_NPC_SNAKES = 3;
+const NPC_COLORS = ['#e67e22', '#9b59b6', '#3498db']; // Orange, Purple, Blue
+
+// NPC Snake class
+class NPCSnake {
+    constructor(x, y, color) {
+        this.body = [{ x, y }];
+        this.direction = this.getRandomDirection();
+        this.color = color;
+        this.nextDirection = this.direction;
+        this.alive = true;
+    }
+
+    getRandomDirection() {
+        const directions = ['up', 'down', 'left', 'right'];
+        return directions[Math.floor(Math.random() * directions.length)];
+    }
+
+    update() {
+        if (!this.alive) return;
+
+        this.direction = this.nextDirection;
+        const head = { x: this.body[0].x, y: this.body[0].y };
+
+        switch (this.direction) {
+            case 'up': head.y--; break;
+            case 'down': head.y++; break;
+            case 'left': head.x--; break;
+            case 'right': head.x++; break;
+        }
+
+        // Check if NPC snake hits walls
+        if (head.x < 0 || head.x >= canvas.width / gridSize || 
+            head.y < 0 || head.y >= canvas.height / gridSize) {
+            this.alive = false;
+            return;
+        }
+
+        // Check if NPC snake hits itself
+        for (let i = 0; i < this.body.length; i++) {
+            if (head.x === this.body[i].x && head.y === this.body[i].y) {
+                this.alive = false;
+                return;
+            }
+        }
+
+        // Check if NPC snake hits player snake
+        for (let i = 0; i < snake.length; i++) {
+            if (head.x === snake[i].x && head.y === snake[i].y) {
+                this.alive = false;
+                return;
+            }
+        }
+
+        // Check if NPC snake hits other NPC snakes
+        for (let npc of npcSnakes) {
+            if (npc !== this) {
+                for (let segment of npc.body) {
+                    if (head.x === segment.x && head.y === segment.y) {
+                        this.alive = false;
+                        return;
+                    }
+                }
+            }
+        }
+
+        this.body.unshift(head);
+
+        // Check if NPC snake eats food
+        if (head.x === food.x && head.y === food.y) {
+            generateFood();
+        } else {
+            this.body.pop();
+        }
+
+        // Simple AI: avoid walls and try to find food
+        this.makeDecision();
+    }
+
+    makeDecision() {
+        if (!this.alive) return;
+
+        const head = this.body[0];
+        const directions = ['up', 'down', 'left', 'right'];
+        const validDirections = [];
+
+        // Find valid directions that won't immediately kill the snake
+        for (let dir of directions) {
+            let newX = head.x;
+            let newY = head.y;
+
+            switch (dir) {
+                case 'up': newY--; break;
+                case 'down': newY++; break;
+                case 'left': newX--; break;
+                case 'right': newX++; break;
+            }
+
+            // Check if new position is valid
+            if (newX >= 0 && newX < canvas.width / gridSize && 
+                newY >= 0 && newY < canvas.height / gridSize) {
+                
+                // Check if not colliding with itself
+                let canMove = true;
+                for (let segment of this.body) {
+                    if (newX === segment.x && newY === segment.y) {
+                        canMove = false;
+                        break;
+                    }
+                }
+                
+                if (canMove) {
+                    validDirections.push(dir);
+                }
+            }
+        }
+
+        if (validDirections.length > 0) {
+            // Simple food-seeking behavior with some randomness
+            let bestDirection = validDirections[0];
+            let minDistance = Infinity;
+
+            for (let dir of validDirections) {
+                let newX = head.x;
+                let newY = head.y;
+
+                switch (dir) {
+                    case 'up': newY--; break;
+                    case 'down': newY++; break;
+                    case 'left': newX--; break;
+                    case 'right': newX++; break;
+                }
+
+                let distance = Math.abs(newX - food.x) + Math.abs(newY - food.y);
+                
+                // 70% chance to choose direction towards food, 30% random
+                if (Math.random() < 0.7 && distance < minDistance) {
+                    minDistance = distance;
+                    bestDirection = dir;
+                } else if (Math.random() < 0.3) {
+                    bestDirection = validDirections[Math.floor(Math.random() * validDirections.length)];
+                }
+            }
+
+            this.nextDirection = bestDirection;
+        }
+    }
+}
+
 // --- NEW DRAWING FUNCTIONS ---
 
 function drawCheckerboard() {
@@ -25,27 +176,42 @@ function drawCheckerboard() {
 }
 
 function drawSnake() {
+    // Draw player snake
+    drawSingleSnake(snake, '#2ecc71', '#27ae60', direction);
+    
+    // Draw NPC snakes
+    for (let i = 0; i < npcSnakes.length; i++) {
+        if (npcSnakes[i].alive) {
+            drawSingleSnake(npcSnakes[i].body, npcSnakes[i].color, 
+                           npcSnakes[i].color, npcSnakes[i].direction, true);
+        }
+    }
+}
+
+function drawSingleSnake(snakeBody, bodyColor, headColor, snakeDirection, isNPC = false) {
     // Draw body
-    for (let i = 1; i < snake.length; i++) {
-        ctx.fillStyle = '#2ecc71'; // Green body
+    for (let i = 1; i < snakeBody.length; i++) {
+        ctx.fillStyle = bodyColor;
         ctx.beginPath();
-        ctx.arc(snake[i].x * gridSize + gridSize / 2, snake[i].y * gridSize + gridSize / 2, gridSize / 2, 0, 2 * Math.PI);
+        ctx.arc(snakeBody[i].x * gridSize + gridSize / 2, snakeBody[i].y * gridSize + gridSize / 2, 
+                gridSize / 2 - (isNPC ? 2 : 0), 0, 2 * Math.PI);
         ctx.fill();
     }
 
     // Draw head
-    const head = snake[0];
-    ctx.fillStyle = '#27ae60'; // Darker green head
+    const head = snakeBody[0];
+    ctx.fillStyle = headColor;
     ctx.beginPath();
-    ctx.arc(head.x * gridSize + gridSize / 2, head.y * gridSize + gridSize / 2, gridSize / 2 + 2, 0, 2 * Math.PI); // Slightly larger head
+    ctx.arc(head.x * gridSize + gridSize / 2, head.y * gridSize + gridSize / 2, 
+            (gridSize / 2 + (isNPC ? 0 : 2)) - (isNPC ? 2 : 0), 0, 2 * Math.PI);
     ctx.fill();
 
     // Draw eyes
     ctx.fillStyle = 'white';
-    const eyeRadius = 3;
+    const eyeRadius = isNPC ? 2 : 3;
     let eyeX1, eyeY1, eyeX2, eyeY2;
 
-    switch (direction) {
+    switch (snakeDirection) {
         case 'up':
             eyeX1 = head.x * gridSize + gridSize / 4;
             eyeY1 = head.y * gridSize + gridSize / 4;
@@ -120,11 +286,24 @@ function generateFood() {
         x: Math.floor(Math.random() * (canvas.width / gridSize)),
         y: Math.floor(Math.random() * (canvas.height / gridSize))
     };
-    // Ensure food doesn't spawn on the snake
+    
+    // Ensure food doesn't spawn on the player snake
     for (let i = 0; i < snake.length; i++) {
         if (food.x === snake[i].x && food.y === snake[i].y) {
             generateFood();
             return;
+        }
+    }
+    
+    // Ensure food doesn't spawn on NPC snakes
+    for (let npc of npcSnakes) {
+        if (npc.alive) {
+            for (let segment of npc.body) {
+                if (food.x === segment.x && food.y === segment.y) {
+                    generateFood();
+                    return;
+                }
+            }
         }
     }
 }
@@ -149,13 +328,37 @@ function update() {
             break;
     }
 
-    if (head.x < 0 || head.x >= canvas.width / gridSize || head.y < 0 || head.y >= canvas.height / gridSize || checkCollision(head)) {
+    // Check collision with walls
+    if (head.x < 0 || head.x >= canvas.width / gridSize || head.y < 0 || head.y >= canvas.height / gridSize) {
         gameOver = true;
-        // Using a more styled alert later would be better, but for now this is fine.
         setTimeout(() => alert('Game Over! Your score was: ' + score), 10);
         gamePaused = true;
         startButton.textContent = "Restart";
         return;
+    }
+
+    // Check collision with player snake
+    if (checkCollision(head)) {
+        gameOver = true;
+        setTimeout(() => alert('Game Over! Your score was: ' + score), 10);
+        gamePaused = true;
+        startButton.textContent = "Restart";
+        return;
+    }
+
+    // Check collision with NPC snakes
+    for (let npc of npcSnakes) {
+        if (npc.alive) {
+            for (let segment of npc.body) {
+                if (head.x === segment.x && head.y === segment.y) {
+                    gameOver = true;
+                    setTimeout(() => alert('Game Over! Your score was: ' + score), 10);
+                    gamePaused = true;
+                    startButton.textContent = "Restart";
+                    return;
+                }
+            }
+        }
     }
 
     snake.unshift(head);
@@ -165,6 +368,13 @@ function update() {
         generateFood();
     } else {
         snake.pop();
+    }
+
+    // Update NPC snakes
+    for (let npc of npcSnakes) {
+        if (npc.alive) {
+            npc.update();
+        }
     }
 
     draw();
@@ -179,6 +389,45 @@ function checkCollision(head) {
     return false;
 }
 
+function spawnNPCSnakes() {
+    npcSnakes = [];
+    
+    for (let i = 0; i < MAX_NPC_SNAKES; i++) {
+        let x, y;
+        let validPosition = false;
+        
+        // Find valid starting position for NPC snake
+        while (!validPosition) {
+            x = Math.floor(Math.random() * (canvas.width / gridSize));
+            y = Math.floor(Math.random() * (canvas.height / gridSize));
+            
+            // Ensure NPC doesn't spawn on player
+            validPosition = true;
+            for (let segment of snake) {
+                if (x === segment.x && y === segment.y) {
+                    validPosition = false;
+                    break;
+                }
+            }
+            
+            // Ensure NPC doesn't spawn on other NPCs
+            if (validPosition) {
+                for (let npc of npcSnakes) {
+                    for (let segment of npc.body) {
+                        if (x === segment.x && y === segment.y) {
+                            validPosition = false;
+                            break;
+                        }
+                    }
+                    if (!validPosition) break;
+                }
+            }
+        }
+        
+        npcSnakes.push(new NPCSnake(x, y, NPC_COLORS[i]));
+    }
+}
+
 function startGame() {
     if (gameOver) {
         snake = [{ x: 10, y: 10 }];
@@ -186,6 +435,7 @@ function startGame() {
         score = 0;
         gameOver = false;
         generateFood();
+        spawnNPCSnakes();
         startButton.textContent = "Start";
     }
     gamePaused = false;
