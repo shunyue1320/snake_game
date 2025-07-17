@@ -164,7 +164,38 @@ class NPCSnake {
     }
 }
 
+// --- ANIMATION VARIABLES ---
+let floatingAnimations = [];
+let animationTime = 0;
+
+// --- UTILITY FUNCTIONS ---
+function shadeColor(color, percent) {
+    const num = parseInt(color.replace("#", ""), 16);
+    const amt = Math.round(2.55 * percent);
+    const R = (num >> 16) + amt;
+    const G = (num >> 8 & 0x00FF) + amt;
+    const B = (num & 0x0000FF) + amt;
+    return "#" + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+        (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+        (B < 255 ? B < 1 ? 0 : B : 255)).toString(16).slice(1);
+}
+
 // --- NEW DRAWING FUNCTIONS ---
+
+function initAnimations() {
+    // Create floating hearts and stars
+    for (let i = 0; i < 8; i++) {
+        floatingAnimations.push({
+            type: Math.random() > 0.5 ? 'heart' : 'star',
+            x: Math.random() * canvas.width,
+            y: Math.random() * canvas.height,
+            size: Math.random() * 15 + 10,
+            speed: Math.random() * 0.5 + 0.2,
+            opacity: Math.random() * 0.5 + 0.3,
+            phase: Math.random() * Math.PI * 2
+        });
+    }
+}
 
 function drawCheckerboard() {
     for (let x = 0; x < canvas.width / gridSize; x++) {
@@ -173,6 +204,62 @@ function drawCheckerboard() {
             ctx.fillRect(x * gridSize, y * gridSize, gridSize, gridSize);
         }
     }
+}
+
+function drawFloatingAnimations() {
+    animationTime += 0.02;
+    
+    floatingAnimations.forEach(anim => {
+        const yOffset = Math.sin(animationTime + anim.phase) * 20;
+        const xOffset = Math.cos(animationTime * 0.5 + anim.phase) * 10;
+        
+        ctx.save();
+        ctx.globalAlpha = anim.opacity * (0.5 + Math.sin(animationTime * 2 + anim.phase) * 0.5);
+        
+        if (anim.type === 'heart') {
+            drawHeart(anim.x + xOffset, anim.y + yOffset, anim.size);
+        } else {
+            drawStar(anim.x + xOffset, anim.y + yOffset, anim.size);
+        }
+        
+        ctx.restore();
+        
+        // Reset position when out of bounds
+        if (anim.y + yOffset < -50) {
+            anim.y = canvas.height + 50;
+            anim.x = Math.random() * canvas.width;
+        }
+        anim.y -= anim.speed;
+    });
+}
+
+function drawHeart(x, y, size) {
+    ctx.fillStyle = '#ff69b4';
+    ctx.beginPath();
+    ctx.moveTo(x, y + size * 0.3);
+    ctx.bezierCurveTo(x, y, x - size * 0.5, y, x - size * 0.5, y + size * 0.3);
+    ctx.bezierCurveTo(x - size * 0.5, y + size * 0.6, x, y + size * 0.9, x, y + size * 1.2);
+    ctx.bezierCurveTo(x, y + size * 0.9, x + size * 0.5, y + size * 0.6, x + size * 0.5, y + size * 0.3);
+    ctx.bezierCurveTo(x + size * 0.5, y, x, y, x, y + size * 0.3);
+    ctx.fill();
+}
+
+function drawStar(x, y, size) {
+    ctx.fillStyle = '#ffd700';
+    ctx.beginPath();
+    for (let i = 0; i < 5; i++) {
+        const angle = (i * 4 * Math.PI) / 5 - Math.PI / 2;
+        const innerAngle = ((i * 4 + 2) * Math.PI) / 5 - Math.PI / 2;
+        
+        if (i === 0) {
+            ctx.moveTo(x + Math.cos(angle) * size, y + Math.sin(angle) * size);
+        } else {
+            ctx.lineTo(x + Math.cos(angle) * size, y + Math.sin(angle) * size);
+        }
+        ctx.lineTo(x + Math.cos(innerAngle) * size * 0.5, y + Math.sin(innerAngle) * size * 0.5);
+    }
+    ctx.closePath();
+    ctx.fill();
 }
 
 function drawSnake() {
@@ -189,24 +276,59 @@ function drawSnake() {
 }
 
 function drawSingleSnake(snakeBody, bodyColor, headColor, snakeDirection, isNPC = false) {
-    // Draw body
+    // Draw body with cute rounded segments
     for (let i = 1; i < snakeBody.length; i++) {
-        ctx.fillStyle = bodyColor;
+        const segment = snakeBody[i];
+        const x = segment.x * gridSize + gridSize / 2;
+        const y = segment.y * gridSize + gridSize / 2;
+        
+        // Add subtle pulsing to body segments
+        const pulse = Math.sin(animationTime * 3 + i * 0.5) * 0.05 + 1;
+        const radius = (gridSize / 2 - (isNPC ? 2 : 0)) * pulse;
+        
+        // Gradient for 3D effect
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, radius);
+        gradient.addColorStop(0, bodyColor);
+        gradient.addColorStop(1, shadeColor(bodyColor, -20));
+        
+        ctx.fillStyle = gradient;
         ctx.beginPath();
-        ctx.arc(snakeBody[i].x * gridSize + gridSize / 2, snakeBody[i].y * gridSize + gridSize / 2, 
-                gridSize / 2 - (isNPC ? 2 : 0), 0, 2 * Math.PI);
+        ctx.arc(x, y, radius, 0, 2 * Math.PI);
         ctx.fill();
+        
+        // Cute cheek circles for player snake
+        if (!isNPC && i % 3 === 1) {
+            ctx.fillStyle = 'rgba(255, 192, 203, 0.3)';
+            ctx.beginPath();
+            ctx.arc(x + 3, y + 3, 3, 0, 2 * Math.PI);
+            ctx.fill();
+        }
     }
 
-    // Draw head
+    // Draw head with expression
     const head = snakeBody[0];
-    ctx.fillStyle = headColor;
+    const headX = head.x * gridSize + gridSize / 2;
+    const headY = head.y * gridSize + gridSize / 2;
+    
+    // Head pulsing
+    const headPulse = Math.sin(animationTime * 4) * 0.1 + 1;
+    const headRadius = ((gridSize / 2 + (isNPC ? 0 : 2)) - (isNPC ? 2 : 0)) * headPulse;
+    
+    // Head gradient
+    const headGradient = ctx.createRadialGradient(headX, headY, 0, headX, headY, headRadius);
+    headGradient.addColorStop(0, headColor);
+    headGradient.addColorStop(1, shadeColor(headColor, -20));
+    
+    ctx.fillStyle = headGradient;
     ctx.beginPath();
-    ctx.arc(head.x * gridSize + gridSize / 2, head.y * gridSize + gridSize / 2, 
-            (gridSize / 2 + (isNPC ? 0 : 2)) - (isNPC ? 2 : 0), 0, 2 * Math.PI);
+    ctx.arc(headX, headY, headRadius, 0, 2 * Math.PI);
     ctx.fill();
 
-    // Draw eyes
+    // Draw eyes with blinking
+    const blinkCycle = Math.sin(animationTime * 2);
+    const isBlinking = blinkCycle > 0.9;
+    const eyeScale = isBlinking ? 0.1 : 1;
+    
     ctx.fillStyle = 'white';
     const eyeRadius = isNPC ? 2 : 3;
     let eyeX1, eyeY1, eyeX2, eyeY2;
@@ -237,10 +359,44 @@ function drawSingleSnake(snakeBody, bodyColor, headColor, snakeDirection, isNPC 
             eyeY2 = head.y * gridSize + (gridSize * 3) / 4;
             break;
     }
+    
+    // Draw eye whites
     ctx.beginPath();
-    ctx.arc(eyeX1, eyeY1, eyeRadius, 0, 2 * Math.PI);
-    ctx.arc(eyeX2, eyeY2, eyeRadius, 0, 2 * Math.PI);
+    ctx.ellipse(eyeX1, eyeY1, eyeRadius, eyeRadius * eyeScale, 0, 0, 2 * Math.PI);
+    ctx.ellipse(eyeX2, eyeY2, eyeRadius, eyeRadius * eyeScale, 0, 0, 2 * Math.PI);
     ctx.fill();
+    
+    // Draw pupils
+    if (!isBlinking) {
+        ctx.fillStyle = 'black';
+        const pupilRadius = eyeRadius * 0.6;
+        const pupilOffsetX = Math.sin(animationTime * 0.5) * 0.5;
+        const pupilOffsetY = Math.cos(animationTime * 0.5) * 0.5;
+        
+        ctx.beginPath();
+        ctx.arc(eyeX1 + pupilOffsetX, eyeY1 + pupilOffsetY, pupilRadius, 0, 2 * Math.PI);
+        ctx.arc(eyeX2 + pupilOffsetX, eyeY2 + pupilOffsetY, pupilRadius, 0, 2 * Math.PI);
+        ctx.fill();
+        
+        // Eye shine
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+        ctx.beginPath();
+        ctx.arc(eyeX1 - 1, eyeY1 - 1, 1, 0, 2 * Math.PI);
+        ctx.arc(eyeX2 - 1, eyeY2 - 1, 1, 0, 2 * Math.PI);
+        ctx.fill();
+    }
+    
+    // Cute mouth for player snake
+    if (!isNPC) {
+        const mouthY = headY + 3;
+        const mouthCurve = Math.sin(animationTime * 3) * 0.5 + 1; // Smiling animation
+        
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.arc(headX, mouthY, 4, 0, Math.PI * mouthCurve);
+        ctx.stroke();
+    }
 }
 
 
@@ -248,34 +404,138 @@ function drawFood() {
     const appleRadius = gridSize / 2;
     const appleX = food.x * gridSize + appleRadius;
     const appleY = food.y * gridSize + appleRadius;
+    
+    // Animation effects
+    const pulse = Math.sin(animationTime * 4) * 0.1 + 1;
+    const rotation = animationTime * 2;
 
-    // Apple body
-    ctx.fillStyle = '#e74c3c'; // Red
+    ctx.save();
+    ctx.translate(appleX, appleY);
+    ctx.rotate(rotation);
+    ctx.scale(pulse, pulse);
+
+    // Apple body with gradient
+    const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, appleRadius);
+    gradient.addColorStop(0, '#ff6b6b');
+    gradient.addColorStop(1, '#e74c3c');
+    
+    ctx.fillStyle = gradient;
     ctx.beginPath();
-    ctx.arc(appleX, appleY, appleRadius - 2, 0, 2 * Math.PI);
+    ctx.arc(0, 0, appleRadius - 2, 0, 2 * Math.PI);
     ctx.fill();
+    
+    // Sparkle effect
+    const sparkleOpacity = Math.abs(Math.sin(animationTime * 6)) * 0.8;
+    ctx.fillStyle = `rgba(255, 255, 255, ${sparkleOpacity})`;
+    ctx.beginPath();
+    ctx.arc(-appleRadius * 0.3, -appleRadius * 0.3, 3, 0, 2 * Math.PI);
+    ctx.fill();
+
+    ctx.restore();
 
     // Apple stem
-    ctx.fillStyle = '#7f4f24'; // Brown
-    ctx.fillRect(appleX - 2, appleY - appleRadius, 4, 5);
+    ctx.save();
+    ctx.translate(appleX, appleY);
+    ctx.rotate(rotation);
+    ctx.fillStyle = '#7f4f24';
+    ctx.fillRect(-2, -appleRadius - 2, 4, 6);
 
-    // Apple leaf
-    ctx.fillStyle = '#2ecc71'; // Green
+    // Apple leaf with wiggle
+    const leafWiggle = Math.sin(animationTime * 3) * 0.2;
+    ctx.save();
+    ctx.translate(0, -appleRadius - 2);
+    ctx.rotate(leafWiggle);
+    ctx.fillStyle = '#2ecc71';
     ctx.beginPath();
-    ctx.moveTo(appleX, appleY - appleRadius + 2);
-    ctx.lineTo(appleX + 5, appleY - appleRadius - 5);
-    ctx.lineTo(appleX + 2, appleY - appleRadius);
+    ctx.moveTo(0, 0);
+    ctx.lineTo(8, -8);
+    ctx.lineTo(3, 0);
     ctx.fill();
+    ctx.restore();
+    
+    ctx.restore();
 }
 
 
 // --- MODIFIED MAIN DRAW FUNCTION ---
 
+function drawGameStatus() {
+    if (gameOver) {
+        // Game Over animation
+        ctx.save();
+        ctx.globalAlpha = 0.8;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Game Over text with bounce effect
+        const bounce = Math.abs(Math.sin(animationTime * 4)) * 5;
+        ctx.fillStyle = '#ff6b6b';
+        ctx.font = `bold ${40 + bounce}px Nunito`;
+        ctx.textAlign = 'center';
+        ctx.fillText('Game Over!', canvas.width / 2, canvas.height / 2 - 50);
+        
+        // Score with sparkle
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 24px Nunito';
+        ctx.fillText(`Final Score: ${score}`, canvas.width / 2, canvas.height / 2);
+        
+        // Restart hint
+        ctx.fillStyle = '#fff';
+        ctx.font = '18px Nunito';
+        ctx.fillText('Click Start to play again!', canvas.width / 2, canvas.height / 2 + 40);
+        
+        ctx.restore();
+    } else if (gamePaused && !gameOver) {
+        // Pause screen
+        ctx.save();
+        ctx.globalAlpha = 0.6;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Pause text with floating effect
+        const float = Math.sin(animationTime * 2) * 10;
+        ctx.fillStyle = '#87CEEB';
+        ctx.font = `bold ${35 + float}px Nunito`;
+        ctx.textAlign = 'center';
+        ctx.fillText('PAUSED', canvas.width / 2, canvas.height / 2 - 20);
+        
+        ctx.fillStyle = '#fff';
+        ctx.font = '18px Nunito';
+        ctx.fillText('Press Resume to continue', canvas.width / 2, canvas.height / 2 + 20);
+        
+        ctx.restore();
+    } else if (gamePaused && score === 0) {
+        // Start screen
+        ctx.save();
+        ctx.globalAlpha = 0.7;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        // Welcome text with rainbow effect
+        const hue = (animationTime * 50) % 360;
+        ctx.fillStyle = `hsl(${hue}, 100%, 60%)`;
+        ctx.font = 'bold 32px Nunito';
+        ctx.textAlign = 'center';
+        ctx.fillText('Welcome to Snake Game!', canvas.width / 2, canvas.height / 2 - 40);
+        
+        // Instructions
+        ctx.fillStyle = '#fff';
+        ctx.font = '16px Nunito';
+        ctx.fillText('Use arrow keys to move', canvas.width / 2, canvas.height / 2);
+        ctx.fillText('Eat apples to grow and score points!', canvas.width / 2, canvas.height / 2 + 25);
+        ctx.fillText('Watch out for other snakes!', canvas.width / 2, canvas.height / 2 + 50);
+        
+        ctx.restore();
+    }
+}
+
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     drawCheckerboard();
+    drawFloatingAnimations();
     drawSnake();
     drawFood();
+    drawGameStatus();
     scoreDisplay.textContent = 'Score: ' + score;
 }
 
@@ -475,4 +735,5 @@ startButton.addEventListener('click', startGame);
 pauseButton.addEventListener('click', pauseGame);
 
 generateFood();
+initAnimations();
 draw();
